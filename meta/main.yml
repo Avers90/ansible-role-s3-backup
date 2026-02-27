@@ -1,0 +1,22 @@
+---
+galaxy_info:
+  author: Avers90
+  description: Encrypted S3 backup for WireGuard, WGDashboard and AdGuard Home
+  license: MIT
+  min_ansible_version: "2.14"
+  platforms:
+    - name: Debian
+      versions:
+        - bullseye
+        - bookworm
+    - name: Ubuntu
+      versions:
+        - focal
+        - jammy
+        - noble
+
+dependencies: []
+
+allow_duplicates: false
+
+# No external collections required - only ansible.builtin

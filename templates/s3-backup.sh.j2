@@ -1,0 +1,163 @@
+#!/usr/bin/env bash
+# {{ ansible_managed }}
+# S3 encrypted backup script
+# Uploads: WireGuard, WGDashboard, AdGuard Home
+# Retention: {{ s3_backup_retention_days }} days
+
+set -euo pipefail
+
+RCLONE="{{ s3_backup_rclone_install_path }}/rclone"
+RCLONE_CONFIG="{{ s3_backup_rclone_config_dir }}/rclone.conf"
+REMOTE="beget-s3-crypt:{{ ansible_hostname }}"
+TMP="{{ s3_backup_tmp_dir }}"
+LOG="{{ s3_backup_log_file }}"
+RETENTION="{{ s3_backup_retention_days }}d"
+DATE="$(date +%Y-%m-%d_%H%M%S)"
+
+# --------------------------------------------------------------------------- #
+
+log() {
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG"
+}
+
+die() {
+  log "ERROR: $*"
+  exit 1
+}
+
+rclone_cmd() {
+  "$RCLONE" --config "$RCLONE_CONFIG" "$@"
+}
+
+# --------------------------------------------------------------------------- #
+
+# Create staging directory with restricted permissions
+mkdir -p "$TMP"
+chmod 0700 "$TMP"
+
+# Always remove staging directory on exit (including errors)
+trap 'rm -rf "$TMP"' EXIT
+
+log "===== S3 backup started ====="
+
+# --------------------------------------------------------------------------- #
+{% if s3_backup_wireguard_enabled %}
+
+backup_wireguard() {
+  log "WireGuard: starting backup"
+
+  local staging="$TMP/wireguard"
+  mkdir -p "$staging"
+  chmod 0700 "$staging"
+
+  local interface="{{ s3_backup_wireguard_interface }}"
+  local wg_dir="{{ s3_backup_wireguard_dir }}"
+
+  # Copy interface config and keys (skip silently if a file does not exist)
+  for f in "${wg_dir}/${interface}.conf" \
+            "${wg_dir}/${interface}_privatekey" \
+            "${wg_dir}/${interface}_publickey"; do
+    if [ -f "$f" ]; then
+      cp -a "$f" "$staging/"
+    else
+      log "WireGuard: WARNING: $f not found, skipping"
+    fi
+  done
+
+  local archive="$TMP/wireguard_${DATE}.tar.gz"
+  tar -czf "$archive" -C "$staging" .
+  chmod 0600 "$archive"
+
+  rclone_cmd copy "$archive" "$REMOTE/wireguard/"
+  rclone_cmd delete --min-age "$RETENTION" "$REMOTE/wireguard/"
+
+  log "WireGuard: done"
+}
+
+backup_wireguard
+{% endif %}
+
+# --------------------------------------------------------------------------- #
+{% if s3_backup_wgdashboard_enabled %}
+
+backup_wgdashboard() {
+  log "WGDashboard: starting backup"
+
+  local staging="$TMP/wgdashboard"
+  local install_dir="{{ s3_backup_wgdashboard_install_dir }}"
+  mkdir -p "$staging/db"
+  chmod -R 0700 "$staging"
+
+  # SQLite databases
+  if ls "${install_dir}/src/db/"*.db &>/dev/null; then
+    cp -a "${install_dir}/src/db/"*.db "$staging/db/"
+  else
+    log "WGDashboard: WARNING: no .db files found in ${install_dir}/src/db/"
+  fi
+
+  # Dashboard config
+  [ -f "${install_dir}/src/wg-dashboard.ini" ] && \
+    cp -a "${install_dir}/src/wg-dashboard.ini" "$staging/"
+
+  # SSL config
+  [ -f "${install_dir}/src/ssl-tls.ini" ] && \
+    cp -a "${install_dir}/src/ssl-tls.ini" "$staging/"
+
+  local archive="$TMP/wgdashboard_${DATE}.tar.gz"
+  tar -czf "$archive" -C "$staging" .
+  chmod 0600 "$archive"
+
+  rclone_cmd copy "$archive" "$REMOTE/wgdashboard/"
+  rclone_cmd delete --min-age "$RETENTION" "$REMOTE/wgdashboard/"
+
+  log "WGDashboard: done"
+}
+
+backup_wgdashboard
+{% endif %}
+
+# --------------------------------------------------------------------------- #
+{% if s3_backup_adguardhome_enabled %}
+
+backup_adguardhome() {
+  log "AdGuardHome: starting backup"
+
+  local staging="$TMP/adguardhome"
+  local install_dir="{{ s3_backup_adguardhome_install_dir }}"
+  mkdir -p "$staging/data"
+  chmod -R 0700 "$staging"
+
+  # Main config
+  [ -f "${install_dir}/AdGuardHome.yaml" ] && \
+    cp -a "${install_dir}/AdGuardHome.yaml" "$staging/"
+
+  # Statistics database
+  [ -f "${install_dir}/data/stats.db" ] && \
+    cp -a "${install_dir}/data/stats.db" "$staging/data/"
+
+  # Query log (current + rotated)
+  for f in "${install_dir}/data/querylog.json" \
+            "${install_dir}/data/querylog.json.1"; do
+    [ -f "$f" ] && cp -a "$f" "$staging/data/"
+  done
+
+{% if s3_backup_adguardhome_exclude_filters %}
+  # Filter lists are excluded (large, re-downloaded automatically on startup)
+{% endif %}
+
+  local archive="$TMP/adguardhome_${DATE}.tar.gz"
+  tar -czf "$archive" -C "$staging" .
+  chmod 0600 "$archive"
+
+  rclone_cmd copy "$archive" "$REMOTE/adguardhome/"
+  rclone_cmd delete --min-age "$RETENTION" "$REMOTE/adguardhome/"
+
+  log "AdGuardHome: done"
+}
+
+backup_adguardhome
+{% endif %}
+
+# --------------------------------------------------------------------------- #
+
+log "===== S3 backup completed ====="

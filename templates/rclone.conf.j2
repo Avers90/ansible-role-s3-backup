@@ -1,0 +1,19 @@
+# {{ ansible_managed }}
+# This file contains sensitive credentials - mode 0600, owner root
+
+[beget-s3]
+type = s3
+provider = Other
+endpoint = {{ s3_backup_s3_endpoint }}
+region = {{ s3_backup_s3_region }}
+access_key_id = {{ s3_backup_s3_access_key }}
+secret_access_key = {{ s3_backup_s3_secret_key }}
+acl = private
+
+[beget-s3-crypt]
+type = crypt
+remote = beget-s3:{{ s3_backup_s3_bucket }}
+filename_encryption = standard
+directory_name_encryption = true
+password = {{ s3_backup_crypt_password_obscured }}
+password2 = {{ s3_backup_crypt_password2_obscured }}

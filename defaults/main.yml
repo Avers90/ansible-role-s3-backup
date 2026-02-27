@@ -1,0 +1,52 @@
+---
+## rclone version to install ("latest" or pin to specific e.g. "v1.68.2")
+s3_backup_rclone_version: "latest"
+
+## rclone binary installation path
+s3_backup_rclone_install_path: "/usr/local/bin"
+
+## rclone config directory
+s3_backup_rclone_config_dir: "/etc/rclone"
+
+## Beget S3 connection settings
+s3_backup_s3_endpoint: "s3.ru1.storage.beget.cloud"
+s3_backup_s3_region: "ru-1"
+
+## REQUIRED: S3 credentials
+s3_backup_s3_bucket: ""
+s3_backup_s3_access_key: ""
+s3_backup_s3_secret_key: ""
+
+## REQUIRED: Encryption passwords for rclone crypt (plain text, obscured automatically by the role)
+## Generate strong passwords: openssl rand -base64 32
+s3_backup_crypt_password: ""
+s3_backup_crypt_password2: ""
+
+## Number of days to retain backups in S3
+s3_backup_retention_days: 7
+
+## Backup schedule (cron)
+s3_backup_cron_hour: "3"
+s3_backup_cron_minute: "0"
+
+## Backup script and log paths
+s3_backup_script_path: "/usr/local/sbin/s3-backup.sh"
+s3_backup_log_file: "/var/log/s3-backup.log"
+
+## Temporary staging directory (removed after each run via trap EXIT)
+s3_backup_tmp_dir: "/tmp/s3-backup"
+
+## --- WireGuard ---
+s3_backup_wireguard_enabled: true
+s3_backup_wireguard_interface: "{{ wireguard_interface | default('wg0') }}"
+s3_backup_wireguard_dir: "/etc/wireguard"
+
+## --- WGDashboard ---
+s3_backup_wgdashboard_enabled: true
+s3_backup_wgdashboard_install_dir: "{{ wgdashboard_install_dir | default('/opt/WGDashboard') }}"
+
+## --- AdGuard Home ---
+s3_backup_adguardhome_enabled: true
+s3_backup_adguardhome_install_dir: "{{ adguardhome_install_dir | default('/opt/AdGuardHome') }}"
+## Filter lists are excluded - they are large and re-downloaded automatically on startup
+s3_backup_adguardhome_exclude_filters: true

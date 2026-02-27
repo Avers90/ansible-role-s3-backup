@@ -1,0 +1,189 @@
+---
+- name: s3_backup | Fail if distro is not supported
+  ansible.builtin.fail:
+    msg: "Distribution '{{ ansible_facts['distribution'] }}' is not supported. Supported: Debian, Ubuntu"
+  when: ansible_facts['distribution'] not in ['Debian', 'Ubuntu']
+
+- name: s3_backup | Validate required variables
+  ansible.builtin.fail:
+    msg: "Required variable '{{ item.name }}' is not set"
+  loop:
+    - name: s3_backup_s3_bucket
+      value: "{{ s3_backup_s3_bucket }}"
+    - name: s3_backup_s3_access_key
+      value: "{{ s3_backup_s3_access_key }}"
+    - name: s3_backup_s3_secret_key
+      value: "{{ s3_backup_s3_secret_key }}"
+    - name: s3_backup_crypt_password
+      value: "{{ s3_backup_crypt_password }}"
+    - name: s3_backup_crypt_password2
+      value: "{{ s3_backup_crypt_password2 }}"
+  when: item.value == ""
+  loop_control:
+    label: "{{ item.name }}"
+  no_log: true
+
+- name: s3_backup | Install dependencies
+  ansible.builtin.apt:
+    name:
+      - curl
+      - ca-certificates
+      - tar
+    state: present
+    update_cache: true
+
+## --- rclone installation ---
+
+- name: s3_backup | Set architecture fact
+  ansible.builtin.set_fact:
+    s3_backup_arch: "{{ 'amd64' if ansible_facts['architecture'] == 'x86_64' else 'arm64' if ansible_facts['architecture'] == 'aarch64' else ansible_facts['architecture'] }}"
+
+- name: s3_backup | Check if rclone is installed
+  ansible.builtin.stat:
+    path: "{{ s3_backup_rclone_install_path }}/rclone"
+  register: s3_backup_rclone_bin
+
+- name: s3_backup | Get current rclone version
+  ansible.builtin.command:
+    cmd: "{{ s3_backup_rclone_install_path }}/rclone version --check"
+  register: s3_backup_rclone_current_version
+  changed_when: false
+  failed_when: false
+  when: s3_backup_rclone_bin.stat.exists
+
+- name: s3_backup | Parse current rclone version
+  ansible.builtin.set_fact:
+    s3_backup_rclone_installed_version: "{{ s3_backup_rclone_current_version.stdout | regex_search('rclone v([0-9.]+)', '\\1') | first | default('') }}"
+  when: s3_backup_rclone_bin.stat.exists
+
+- name: s3_backup | Resolve latest rclone version from GitHub API
+  ansible.builtin.uri:
+    url: "https://api.github.com/repos/rclone/rclone/releases/latest"
+    return_content: true
+    headers:
+      Accept: "application/vnd.github+json"
+  register: s3_backup_rclone_latest_release
+  when: s3_backup_rclone_version == "latest"
+
+- name: s3_backup | Set resolved rclone version
+  ansible.builtin.set_fact:
+    s3_backup_rclone_version_resolved: >-
+      {{ s3_backup_rclone_latest_release.json.tag_name
+         if s3_backup_rclone_version == 'latest'
+         else s3_backup_rclone_version }}
+
+- name: s3_backup | Determine if rclone install or update is needed
+  ansible.builtin.set_fact:
+    s3_backup_rclone_needs_install: >-
+      {{ not s3_backup_rclone_bin.stat.exists
+         or (s3_backup_rclone_installed_version | default('') != s3_backup_rclone_version_resolved | regex_replace('^v', '')) }}
+
+- name: s3_backup | Download rclone
+  ansible.builtin.get_url:
+    url: "https://github.com/rclone/rclone/releases/download/{{ s3_backup_rclone_version_resolved }}/rclone-{{ s3_backup_rclone_version_resolved }}-linux-{{ s3_backup_arch }}.zip"
+    dest: "/tmp/rclone.zip"
+    mode: "0644"
+  when: s3_backup_rclone_needs_install
+
+- name: s3_backup | Install unzip for rclone archive
+  ansible.builtin.apt:
+    name: unzip
+    state: present
+  when: s3_backup_rclone_needs_install
+
+- name: s3_backup | Extract rclone binary
+  ansible.builtin.shell: |
+    unzip -o /tmp/rclone.zip -d /tmp/rclone-extract
+    cp /tmp/rclone-extract/rclone-*/rclone {{ s3_backup_rclone_install_path }}/rclone
+    chmod 0755 {{ s3_backup_rclone_install_path }}/rclone
+    rm -rf /tmp/rclone-extract /tmp/rclone.zip
+  changed_when: true
+  when: s3_backup_rclone_needs_install
+
+- name: s3_backup | Display rclone version
+  ansible.builtin.debug:
+    msg: "rclone {{ s3_backup_rclone_version_resolved }} installed"
+  when: s3_backup_rclone_needs_install
+
+## --- rclone config ---
+
+- name: s3_backup | Create rclone config directory
+  ansible.builtin.file:
+    path: "{{ s3_backup_rclone_config_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: s3_backup | Obscure crypt password
+  ansible.builtin.shell:
+    cmd: "rclone obscure -"
+    stdin: "{{ s3_backup_crypt_password }}"
+  register: s3_backup_crypt_password_result
+  changed_when: false
+  no_log: true
+
+- name: s3_backup | Obscure crypt salt
+  ansible.builtin.shell:
+    cmd: "rclone obscure -"
+    stdin: "{{ s3_backup_crypt_password2 }}"
+  register: s3_backup_crypt_password2_result
+  changed_when: false
+  no_log: true
+
+- name: s3_backup | Set obscured password facts
+  ansible.builtin.set_fact:
+    s3_backup_crypt_password_obscured: "{{ s3_backup_crypt_password_result.stdout }}"
+    s3_backup_crypt_password2_obscured: "{{ s3_backup_crypt_password2_result.stdout }}"
+  no_log: true
+
+- name: s3_backup | Deploy rclone config
+  ansible.builtin.template:
+    src: rclone.conf.j2
+    dest: "{{ s3_backup_rclone_config_dir }}/rclone.conf"
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+
+## --- Backup script ---
+
+- name: s3_backup | Deploy backup script
+  ansible.builtin.template:
+    src: s3-backup.sh.j2
+    dest: "{{ s3_backup_script_path }}"
+    owner: root
+    group: root
+    mode: "0700"
+
+## --- Cron ---
+
+- name: s3_backup | Deploy cron job
+  ansible.builtin.cron:
+    name: "s3-backup"
+    minute: "{{ s3_backup_cron_minute }}"
+    hour: "{{ s3_backup_cron_hour }}"
+    job: "{{ s3_backup_script_path }} >> {{ s3_backup_log_file }} 2>&1"
+    user: root
+    state: present
+
+## --- Summary ---
+
+- name: s3_backup | Display configuration summary
+  ansible.builtin.debug:
+    msg: |
+      S3 backup configured successfully!
+
+      Script:   {{ s3_backup_script_path }}
+      Log:      {{ s3_backup_log_file }}
+      Schedule: {{ s3_backup_cron_minute }} {{ s3_backup_cron_hour }} * * * (daily at {{ s3_backup_cron_hour }}:{{ '%02d' | format(s3_backup_cron_minute | int) }})
+      Retention: {{ s3_backup_retention_days }} days
+      Endpoint: {{ s3_backup_s3_endpoint }}
+      Bucket:   {{ s3_backup_s3_bucket }}
+
+      Services backed up:
+        WireGuard:   {{ s3_backup_wireguard_enabled }}
+        WGDashboard: {{ s3_backup_wgdashboard_enabled }}
+        AdGuardHome: {{ s3_backup_adguardhome_enabled }}
+
+      Run manually: {{ s3_backup_script_path }}
