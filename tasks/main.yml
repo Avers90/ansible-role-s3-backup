@@ -45,7 +45,7 @@
 
 - name: s3_backup | Get current rclone version
   ansible.builtin.command:
-    cmd: "{{ s3_backup_rclone_install_path }}/rclone version --check"
+    cmd: "{{ s3_backup_rclone_install_path }}/rclone version"
   register: s3_backup_rclone_current_version
   changed_when: false
   failed_when: false
@@ -53,7 +53,7 @@
 
 - name: s3_backup | Parse current rclone version
   ansible.builtin.set_fact:
-    s3_backup_rclone_installed_version: "{{ s3_backup_rclone_current_version.stdout | regex_search('rclone v([0-9.]+)', '\\1') | first | default('') }}"
+    s3_backup_rclone_installed_version: "{{ s3_backup_rclone_current_version.stdout | regex_search('rclone v([0-9.]+)', '\\1') | default([]) | first | default('') }}"
   when: s3_backup_rclone_bin.stat.exists
 
 - name: s3_backup | Resolve latest rclone version from GitHub API
