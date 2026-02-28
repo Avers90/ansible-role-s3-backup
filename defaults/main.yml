@@ -50,3 +50,6 @@ s3_backup_adguardhome_enabled: true
 s3_backup_adguardhome_install_dir: "{{ adguardhome_install_dir | default('/opt/AdGuardHome') }}"
 ## Filter lists are excluded - they are large and re-downloaded automatically on startup
 s3_backup_adguardhome_exclude_filters: true
+## Query log is excluded by default - large and not critical for restore
+## Set to false to include querylog.json and querylog.json.1 in backup
+s3_backup_adguardhome_exclude_querylog: true

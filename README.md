@@ -4,7 +4,7 @@ Ansible role that installs [rclone](https://rclone.org/) and configures an encry
 
 - **WireGuard** — interface config and keys
 - **WGDashboard** — SQLite databases and INI configs
-- **AdGuard Home** — YAML config, stats and query log
+- **AdGuard Home** — YAML config and stats database
 
 Backups are encrypted with `rclone crypt` (AES-256) before upload. Plain-text passwords are obscured automatically by the role — no manual `rclone obscure` required.
 
@@ -40,6 +40,10 @@ s3_backup_cron_minute: "0"
 s3_backup_wireguard_enabled: true
 s3_backup_wgdashboard_enabled: true
 s3_backup_adguardhome_enabled: true
+
+## AdGuard Home exclusions
+s3_backup_adguardhome_exclude_filters: true   # filter lists (large, re-downloaded on startup)
+s3_backup_adguardhome_exclude_querylog: true  # query log (large, not critical for restore)
 ```
 
 All variables are documented in `defaults/main.yml`.
@@ -85,9 +89,11 @@ In S3 the filenames and directory names are encrypted (rclone crypt `filename_en
 |---------|-------|
 | WireGuard | `/etc/wireguard/<interface>.conf`, `*_privatekey`, `*_publickey` |
 | WGDashboard | `src/db/*.db`, `src/wg-dashboard.ini`, `src/ssl-tls.ini` |
-| AdGuard Home | `AdGuardHome.yaml`, `data/stats.db`, `data/querylog.json*` |
+| AdGuard Home | `AdGuardHome.yaml`, `data/stats.db` |
 
-AdGuard Home filter lists (`data/filters/`) are **excluded** — they are large and re-downloaded automatically on startup.
+AdGuard Home exclusions (controlled by variables):
+- `data/filters/` — **always excluded**, large, re-downloaded automatically on startup
+- `data/querylog.json*` — **excluded by default** (`s3_backup_adguardhome_exclude_querylog: true`), not critical for restore, can be large (10–100 MB/day depending on traffic)
 
 ## Manual run
 

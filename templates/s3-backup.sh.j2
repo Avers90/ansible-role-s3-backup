@@ -135,11 +135,15 @@ backup_adguardhome() {
   [ -f "${install_dir}/data/stats.db" ] && \
     cp -a "${install_dir}/data/stats.db" "$staging/data/"
 
+{% if not s3_backup_adguardhome_exclude_querylog %}
   # Query log (current + rotated)
   for f in "${install_dir}/data/querylog.json" \
             "${install_dir}/data/querylog.json.1"; do
     [ -f "$f" ] && cp -a "$f" "$staging/data/"
   done
+{% else %}
+  # Query log is excluded (large, not critical for restore)
+{% endif %}
 
 {% if s3_backup_adguardhome_exclude_filters %}
   # Filter lists are excluded (large, re-downloaded automatically on startup)
