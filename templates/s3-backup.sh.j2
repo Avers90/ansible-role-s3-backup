@@ -8,7 +8,7 @@ set -euo pipefail
 
 RCLONE="{{ s3_backup_rclone_install_path }}/rclone"
 RCLONE_CONFIG="{{ s3_backup_rclone_config_dir }}/rclone.conf"
-REMOTE="beget-s3-crypt:{{ ansible_hostname }}"
+REMOTE="{{ s3_backup_rclone_crypt_name }}:{{ ansible_hostname }}"
 TMP="{{ s3_backup_tmp_dir }}"
 LOG="{{ s3_backup_log_file }}"
 RETENTION="{{ s3_backup_retention_days }}d"

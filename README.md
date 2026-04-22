@@ -1,18 +1,21 @@
 # ansible-role-s3-backup
 
-Ansible role that installs [rclone](https://rclone.org/) and configures an encrypted daily backup to S3 (Beget Object Storage) for:
+Ansible role that installs [rclone](https://rclone.org/) and configures an encrypted daily backup
+to **any S3-compatible storage** (AWS S3, Beget, Hetzner, Selectel, Wasabi, Scaleway, MinIO, etc.)
+for:
 
 - **WireGuard** — interface config and keys
 - **WGDashboard** — SQLite databases and INI configs
 - **AdGuard Home** — YAML config and stats database
 
-Backups are encrypted with `rclone crypt` (AES-256) before upload. Plain-text passwords are obscured automatically by the role — no manual `rclone obscure` required.
+Backups are encrypted with `rclone crypt` (AES-256) before upload. Plain-text passwords are obscured
+automatically by the role — no manual `rclone obscure` required.
 
 ## Requirements
 
 - Debian or Ubuntu
 - The services to be backed up must already be installed
-- A Beget S3 bucket with access credentials
+- An S3 bucket with access credentials on any S3-compatible provider
 
 ## Variables
 
@@ -20,9 +23,22 @@ Backups are encrypted with `rclone crypt` (AES-256) before upload. Plain-text pa
 ## rclone version ("latest" or pinned e.g. "v1.68.2")
 s3_backup_rclone_version: "latest"
 
-## Beget S3 settings
+## rclone remote names inside /etc/rclone/rclone.conf
+s3_backup_rclone_remote_name: "beget-s3"
+s3_backup_rclone_crypt_name:  "beget-s3-crypt"
+
+## S3 provider for rclone: AWS | Other | Minio | Wasabi | Scaleway | DigitalOcean | ...
+## "Other" covers any S3-compatible endpoint (Beget, Hetzner, Selectel, Yandex, ...).
+s3_backup_s3_provider: "Other"
+
+## Endpoint (leave empty for AWS — region alone is enough)
 s3_backup_s3_endpoint: "s3.ru1.storage.beget.cloud"
-s3_backup_s3_region: "ru-1"
+s3_backup_s3_region:   "ru-1"
+
+## Required for MinIO and some self-hosted S3 gateways
+s3_backup_s3_force_path_style: false
+
+## S3 credentials
 s3_backup_s3_bucket: ""         # REQUIRED
 s3_backup_s3_access_key: ""     # REQUIRED
 s3_backup_s3_secret_key: ""     # REQUIRED
@@ -47,6 +63,67 @@ s3_backup_adguardhome_exclude_querylog: true  # query log (large, not critical f
 ```
 
 All variables are documented in `defaults/main.yml`.
+
+## Provider examples
+
+### AWS S3
+
+```yaml
+s3_backup_rclone_remote_name: "aws-s3"
+s3_backup_rclone_crypt_name:  "aws-s3-crypt"
+s3_backup_s3_provider: "AWS"
+s3_backup_s3_endpoint: ""                # not required for AWS
+s3_backup_s3_region:   "eu-central-1"
+```
+
+### Beget (default)
+
+```yaml
+s3_backup_s3_provider: "Other"
+s3_backup_s3_endpoint: "s3.ru1.storage.beget.cloud"
+s3_backup_s3_region:   "ru-1"
+```
+
+### Hetzner Object Storage
+
+```yaml
+s3_backup_rclone_remote_name: "hetzner-s3"
+s3_backup_rclone_crypt_name:  "hetzner-s3-crypt"
+s3_backup_s3_provider: "Other"
+s3_backup_s3_endpoint: "fsn1.your-objectstorage.com"   # or nbg1 / hel1
+s3_backup_s3_region:   "fsn1"
+```
+
+### Selectel
+
+```yaml
+s3_backup_rclone_remote_name: "selectel-s3"
+s3_backup_rclone_crypt_name:  "selectel-s3-crypt"
+s3_backup_s3_provider: "Other"
+s3_backup_s3_endpoint: "s3.storage.selcloud.ru"
+s3_backup_s3_region:   "ru-1"
+```
+
+### MinIO / self-hosted
+
+```yaml
+s3_backup_rclone_remote_name: "minio"
+s3_backup_rclone_crypt_name:  "minio-crypt"
+s3_backup_s3_provider: "Minio"
+s3_backup_s3_endpoint: "minio.example.com:9000"
+s3_backup_s3_region:   "us-east-1"
+s3_backup_s3_force_path_style: true
+```
+
+### Wasabi
+
+```yaml
+s3_backup_rclone_remote_name: "wasabi-s3"
+s3_backup_rclone_crypt_name:  "wasabi-s3-crypt"
+s3_backup_s3_provider: "Wasabi"
+s3_backup_s3_endpoint: "s3.eu-central-1.wasabisys.com"
+s3_backup_s3_region:   "eu-central-1"
+```
 
 ## Usage
 
@@ -105,9 +182,12 @@ Logs: `/var/log/s3-backup.log`
 
 ## Restore
 
+Substitute `<crypt-remote>` with whatever you set in `s3_backup_rclone_crypt_name`
+(default: `beget-s3-crypt`):
+
 ```bash
 # Install rclone and configure /etc/rclone/rclone.conf, then:
-rclone --config /etc/rclone/rclone.conf copy beget-s3-crypt:<hostname>/wireguard/ ./restore/wireguard/
+rclone --config /etc/rclone/rclone.conf copy <crypt-remote>:<hostname>/wireguard/ ./restore/wireguard/
 tar -xzf ./restore/wireguard/<archive>.tar.gz -C /etc/wireguard/
 ```
 

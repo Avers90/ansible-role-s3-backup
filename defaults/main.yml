@@ -8,9 +8,32 @@ s3_backup_rclone_install_path: "/usr/local/bin"
 ## rclone config directory
 s3_backup_rclone_config_dir: "/etc/rclone"
 
-## Beget S3 connection settings
+## --- rclone remote names (used inside rclone.conf and the backup script) ---
+## Override per-inventory to avoid clashes when multiple S3 providers are used.
+## Defaults keep backward compatibility with the original Beget-based setup.
+s3_backup_rclone_remote_name: "beget-s3"
+s3_backup_rclone_crypt_name: "beget-s3-crypt"
+
+## --- S3 connection settings ---
+## rclone S3 provider: AWS | Other | Minio | Wasabi | Scaleway | DigitalOcean |
+##                     IBMCOS | Alibaba | Netease | Tencent | BackblazeB2-compatible
+## "Other" works for any S3-compatible endpoint (Beget, Hetzner, Selectel, Yandex...).
+s3_backup_s3_provider: "Other"
+
+## Endpoint hostname. Leave empty for AWS (region alone is enough).
+## Examples:
+##   Beget:    s3.ru1.storage.beget.cloud
+##   Hetzner:  fsn1.your-objectstorage.com
+##   Selectel: s3.storage.selcloud.ru
+##   MinIO:    minio.example.com:9000
 s3_backup_s3_endpoint: "s3.ru1.storage.beget.cloud"
+
+## Region (required by most providers including AWS).
 s3_backup_s3_region: "ru-1"
+
+## Force path-style addressing (bucket in URL path instead of subdomain).
+## Required for MinIO and some self-hosted S3 gateways.
+s3_backup_s3_force_path_style: false
 
 ## REQUIRED: S3 credentials
 s3_backup_s3_bucket: ""
