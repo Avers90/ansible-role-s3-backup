@@ -183,6 +183,7 @@
 
       Services backed up:
         WireGuard:   {{ s3_backup_wireguard_enabled }}
+        AmneziaWG:   {{ s3_backup_amneziawg_enabled }}
         WGDashboard: {{ s3_backup_wgdashboard_enabled }}
         AdGuardHome: {{ s3_backup_adguardhome_enabled }}
 

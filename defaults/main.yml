@@ -64,6 +64,13 @@ s3_backup_wireguard_enabled: true
 s3_backup_wireguard_interface: "{{ wireguard_interface | default('wg0') }}"
 s3_backup_wireguard_dir: "/etc/wireguard"
 
+## --- AmneziaWG ---
+## Disabled by default; enable on hosts running ansible-role-amneziawg.
+## Usually mutually exclusive with WireGuard on the same host.
+s3_backup_amneziawg_enabled: false
+s3_backup_amneziawg_interface: "{{ amneziawg_interface | default('awg0') }}"
+s3_backup_amneziawg_dir: "{{ amneziawg_config_dir | default('/etc/amnezia/amneziawg') }}"
+
 ## --- WGDashboard ---
 s3_backup_wgdashboard_enabled: true
 s3_backup_wgdashboard_install_dir: "{{ wgdashboard_install_dir | default('/opt/WGDashboard') }}"

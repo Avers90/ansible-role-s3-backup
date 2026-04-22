@@ -78,6 +78,43 @@ backup_wireguard
 {% endif %}
 
 # --------------------------------------------------------------------------- #
+{% if s3_backup_amneziawg_enabled %}
+
+backup_amneziawg() {
+  log "AmneziaWG: starting backup"
+
+  local staging="$TMP/amneziawg"
+  mkdir -p "$staging"
+  chmod 0700 "$staging"
+
+  local interface="{{ s3_backup_amneziawg_interface }}"
+  local awg_dir="{{ s3_backup_amneziawg_dir }}"
+
+  # Copy interface config and keys (skip silently if a file does not exist)
+  for f in "${awg_dir}/${interface}.conf" \
+            "${awg_dir}/${interface}_privatekey" \
+            "${awg_dir}/${interface}_publickey"; do
+    if [ -f "$f" ]; then
+      cp -a "$f" "$staging/"
+    else
+      log "AmneziaWG: WARNING: $f not found, skipping"
+    fi
+  done
+
+  local archive="$TMP/amneziawg_${DATE}.tar.gz"
+  tar -czf "$archive" -C "$staging" .
+  chmod 0600 "$archive"
+
+  rclone_cmd copy "$archive" "$REMOTE/amneziawg/"
+  rclone_cmd delete --min-age "$RETENTION" "$REMOTE/amneziawg/"
+
+  log "AmneziaWG: done"
+}
+
+backup_amneziawg
+{% endif %}
+
+# --------------------------------------------------------------------------- #
 {% if s3_backup_wgdashboard_enabled %}
 
 backup_wgdashboard() {

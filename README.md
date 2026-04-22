@@ -4,9 +4,12 @@ Ansible role that installs [rclone](https://rclone.org/) and configures an encry
 to **any S3-compatible storage** (AWS S3, Beget, Hetzner, Selectel, Wasabi, Scaleway, MinIO, etc.)
 for:
 
-- **WireGuard** — interface config and keys
+- **WireGuard** — interface config and keys from `/etc/wireguard/`
+- **AmneziaWG** — interface config and keys from `/etc/amnezia/amneziawg/` (obfuscated WG fork)
 - **WGDashboard** — SQLite databases and INI configs
 - **AdGuard Home** — YAML config and stats database
+
+WireGuard and AmneziaWG blocks are independent — enable whichever is running on the host.
 
 Backups are encrypted with `rclone crypt` (AES-256) before upload. Plain-text passwords are obscured
 automatically by the role — no manual `rclone obscure` required.
@@ -54,6 +57,7 @@ s3_backup_cron_minute: "0"
 
 ## Enable/disable per service
 s3_backup_wireguard_enabled: true
+s3_backup_amneziawg_enabled: false   # enable on hosts running ansible-role-amneziawg
 s3_backup_wgdashboard_enabled: true
 s3_backup_adguardhome_enabled: true
 
@@ -148,11 +152,13 @@ Store credentials in `group_vars` encrypted with `ansible-vault`.
 
 ## S3 Structure
 
-After decryption the bucket contains:
+After decryption the bucket contains (subdirectories appear only for enabled services):
 
 ```
 <hostname>/
-├── wireguard/
+├── wireguard/          # when s3_backup_wireguard_enabled
+│   └── 2026-02-27_030000.tar.gz
+├── amneziawg/          # when s3_backup_amneziawg_enabled
 │   └── 2026-02-27_030000.tar.gz
 ├── wgdashboard/
 │   └── 2026-02-27_030000.tar.gz
@@ -167,6 +173,7 @@ In S3 the filenames and directory names are encrypted (rclone crypt `filename_en
 | Service | Files |
 |---------|-------|
 | WireGuard | `/etc/wireguard/<interface>.conf`, `*_privatekey`, `*_publickey` |
+| AmneziaWG | `/etc/amnezia/amneziawg/<interface>.conf`, `*_privatekey`, `*_publickey` |
 | WGDashboard | `src/db/*.db`, `src/wg-dashboard.ini`, `src/ssl-tls.ini` |
 | AdGuard Home | `AdGuardHome.yaml`, `data/stats.db` |
 
