@@ -24,8 +24,8 @@ automatically by the role — no manual `rclone obscure` required.
 s3_backup_rclone_version: "latest"
 
 ## rclone remote names inside /etc/rclone/rclone.conf
-s3_backup_rclone_remote_name: "beget-s3"
-s3_backup_rclone_crypt_name:  "beget-s3-crypt"
+s3_backup_rclone_remote_name: "s3-backup"
+s3_backup_rclone_crypt_name:  "s3-backup-crypt"
 
 ## S3 provider for rclone: AWS | Other | Minio | Wasabi | Scaleway | DigitalOcean | ...
 ## "Other" covers any S3-compatible endpoint (Beget, Hetzner, Selectel, Yandex, ...).
@@ -76,9 +76,11 @@ s3_backup_s3_endpoint: ""                # not required for AWS
 s3_backup_s3_region:   "eu-central-1"
 ```
 
-### Beget (default)
+### Beget
 
 ```yaml
+s3_backup_rclone_remote_name: "beget-s3"
+s3_backup_rclone_crypt_name:  "beget-s3-crypt"
 s3_backup_s3_provider: "Other"
 s3_backup_s3_endpoint: "s3.ru1.storage.beget.cloud"
 s3_backup_s3_region:   "ru-1"
@@ -183,7 +185,7 @@ Logs: `/var/log/s3-backup.log`
 ## Restore
 
 Substitute `<crypt-remote>` with whatever you set in `s3_backup_rclone_crypt_name`
-(default: `beget-s3-crypt`):
+(default: `s3-backup-crypt`):
 
 ```bash
 # Install rclone and configure /etc/rclone/rclone.conf, then:

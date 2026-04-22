@@ -9,10 +9,10 @@ s3_backup_rclone_install_path: "/usr/local/bin"
 s3_backup_rclone_config_dir: "/etc/rclone"
 
 ## --- rclone remote names (used inside rclone.conf and the backup script) ---
-## Override per-inventory to avoid clashes when multiple S3 providers are used.
-## Defaults keep backward compatibility with the original Beget-based setup.
-s3_backup_rclone_remote_name: "beget-s3"
-s3_backup_rclone_crypt_name: "beget-s3-crypt"
+## Override per-inventory when migrating between providers to avoid stale
+## remote names in /etc/rclone/rclone.conf.
+s3_backup_rclone_remote_name: "s3-backup"
+s3_backup_rclone_crypt_name: "s3-backup-crypt"
 
 ## --- S3 connection settings ---
 ## rclone S3 provider: AWS | Other | Minio | Wasabi | Scaleway | DigitalOcean |
