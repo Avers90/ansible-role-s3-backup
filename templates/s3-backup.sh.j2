@@ -8,16 +8,29 @@ set -euo pipefail
 
 RCLONE="{{ s3_backup_rclone_install_path }}/rclone"
 RCLONE_CONFIG="{{ s3_backup_rclone_config_dir }}/rclone.conf"
+RCLONE_ENV="{{ s3_backup_rclone_config_dir }}/rclone.env"
 REMOTE="{{ s3_backup_rclone_crypt_name }}:{{ ansible_hostname }}"
 TMP="{{ s3_backup_tmp_dir }}"
 LOG="{{ s3_backup_log_file }}"
 RETENTION="{{ s3_backup_retention_days }}d"
 DATE="$(date +%Y-%m-%d_%H%M%S)"
 
+# rclone environment (e.g. RCLONE_BIND) — shared with the restore script
+if [ -f "$RCLONE_ENV" ]; then
+  set -a
+  # shellcheck source=/dev/null
+  . "$RCLONE_ENV"
+  set +a
+fi
+
+# All output (incl. rclone errors on stderr) goes to the log exactly once,
+# and to the terminal on a manual run. Cron discards stdout/stderr.
+exec > >(tee -a "$LOG") 2>&1
+
 # --------------------------------------------------------------------------- #
 
 log() {
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG"
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"
 }
 
 die() {
@@ -35,8 +48,16 @@ rclone_cmd() {
 mkdir -p "$TMP"
 chmod 0700 "$TMP"
 
-# Always remove staging directory on exit (including errors)
-trap 'rm -rf "$TMP"' EXIT
+# Always remove staging directory on exit (including errors); mark failures
+# with a greppable line — set -e exits silently otherwise.
+on_exit() {
+  local rc=$?
+  rm -rf "$TMP"
+  if [ "$rc" -ne 0 ]; then
+    log "===== S3 backup FAILED (rc=${rc}) ====="
+  fi
+}
+trap on_exit EXIT
 
 log "===== S3 backup started ====="
 

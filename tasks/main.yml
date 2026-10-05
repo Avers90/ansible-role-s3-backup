@@ -146,6 +146,19 @@
     mode: "0600"
   no_log: true
 
+- name: s3_backup | Deploy rclone environment file
+  ansible.builtin.copy:
+    dest: "{{ s3_backup_rclone_config_dir }}/rclone.env"
+    content: |
+      # {{ ansible_managed }}
+      # Sourced by {{ s3_backup_script_path }}; restore tooling should source it too
+      {% if s3_backup_rclone_bind | length > 0 %}
+      RCLONE_BIND={{ s3_backup_rclone_bind }}
+      {% endif %}
+    owner: root
+    group: root
+    mode: "0644"
+
 ## --- Backup script ---
 
 - name: s3_backup | Deploy backup script
@@ -163,7 +176,8 @@
     name: "s3-backup"
     minute: "{{ s3_backup_cron_minute }}"
     hour: "{{ s3_backup_cron_hour }}"
-    job: "{{ s3_backup_script_path }} >> {{ s3_backup_log_file }} 2>&1"
+    ## The script writes its own log (tee); redirecting here too duplicated every line.
+    job: "{{ s3_backup_script_path }} >/dev/null 2>&1"
     user: root
     state: present
 

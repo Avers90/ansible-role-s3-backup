@@ -41,6 +41,10 @@ s3_backup_s3_region:   "ru-1"
 ## Required for MinIO and some self-hosted S3 gateways
 s3_backup_s3_force_path_style: false
 
+## Source IP for rclone connections (multi-IP host whose primary IP cannot
+## reach the endpoint). Written as RCLONE_BIND to /etc/rclone/rclone.env.
+s3_backup_rclone_bind: ""
+
 ## S3 credentials
 s3_backup_s3_bucket: ""         # REQUIRED
 s3_backup_s3_access_key: ""     # REQUIRED
@@ -187,7 +191,15 @@ AdGuard Home exclusions (controlled by variables):
 /usr/local/sbin/s3-backup.sh
 ```
 
-Logs: `/var/log/s3-backup.log`
+Logs: `/var/log/s3-backup.log` — the script writes every line there itself
+(and to the terminal on a manual run); cron discards output. Each run ends with
+`===== S3 backup completed =====` or `===== S3 backup FAILED (rc=N) =====`.
+
+Check the last runs:
+
+```bash
+grep -E 'completed|FAILED' /var/log/s3-backup.log | tail -n 5
+```
 
 ## Restore
 
@@ -196,6 +208,7 @@ Substitute `<crypt-remote>` with whatever you set in `s3_backup_rclone_crypt_nam
 
 ```bash
 # Install rclone and configure /etc/rclone/rclone.conf, then:
+set -a; . /etc/rclone/rclone.env; set +a   # RCLONE_BIND, if set
 rclone --config /etc/rclone/rclone.conf copy <crypt-remote>:<hostname>/wireguard/ ./restore/wireguard/
 tar -xzf ./restore/wireguard/<archive>.tar.gz -C /etc/wireguard/
 ```

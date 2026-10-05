@@ -14,6 +14,12 @@ s3_backup_rclone_config_dir: "/etc/rclone"
 s3_backup_rclone_remote_name: "s3-backup"
 s3_backup_rclone_crypt_name: "s3-backup-crypt"
 
+## Local source address for all rclone connections (rclone --bind, exported as
+## RCLONE_BIND via {{ s3_backup_rclone_config_dir }}/rclone.env). Empty = kernel
+## picks the source. Set it on multi-IP hosts whose primary IP cannot reach the
+## S3 endpoint (e.g. the primary IP is blocked on the provider side).
+s3_backup_rclone_bind: ""
+
 ## --- S3 connection settings ---
 ## rclone S3 provider: AWS | Other | Minio | Wasabi | Scaleway | DigitalOcean |
 ##                     IBMCOS | Alibaba | Netease | Tencent | BackblazeB2-compatible
