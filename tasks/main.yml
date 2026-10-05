@@ -49,11 +49,12 @@
   register: s3_backup_rclone_current_version
   changed_when: false
   failed_when: false
+  check_mode: false   # read-only probe; skipped in --check → empty stdout → bogus reinstall
   when: s3_backup_rclone_bin.stat.exists
 
 - name: s3_backup | Parse current rclone version
   ansible.builtin.set_fact:
-    s3_backup_rclone_installed_version: "{{ s3_backup_rclone_current_version.stdout | regex_search('rclone v([0-9.]+)', '\\1') | default([]) | first | default('') }}"
+    s3_backup_rclone_installed_version: "{{ ((s3_backup_rclone_current_version.stdout | default('') | regex_search('rclone v([0-9.]+)', '\\1')) or ['']) | first }}"
   when: s3_backup_rclone_bin.stat.exists
 
 - name: s3_backup | Resolve latest rclone version from GitHub API
@@ -63,6 +64,7 @@
     headers:
       Accept: "application/vnd.github+json"
   register: s3_backup_rclone_latest_release
+  check_mode: false   # read-only GET; uri is skipped in --check otherwise
   when: s3_backup_rclone_version == "latest"
 
 - name: s3_backup | Set resolved rclone version
